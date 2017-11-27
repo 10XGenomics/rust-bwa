@@ -9,7 +9,7 @@ extern crate bwa;
 use bwa::BwaAligner;
 
 fn main() {
-    let bwa = BwaAligner::from_path(&"test_ref.fa").unwrap();
+    let bwa = BwaAligner::from_path(&"tests/test_ref.fa").unwrap();
 
     let r1 = b"GATGGCTGCGCAAGGGTTCTTACTGATCGCCACGTTTTTACTGGTGTTAATGGTGCTGGCGCGTCCTTTAGGCAGCGGG";
     let q1 = b"2222222222222222222222222222222222222222222222222222222222222222222222222222222";
