@@ -1,0 +1,15 @@
+[package]
+name = "bwa"
+version = "0.1.0"
+authors = ["Patrick Marks <patrick@10xgenomics.com>"]
+build = "build.rs"
+
+
+[dependencies]
+libc = "*"
+rust-htslib = { path = "../rust-htslib" }
+failure = "*"
+failure_derive = "*"
+
+[build-dependencies]
+bindgen = "*"
