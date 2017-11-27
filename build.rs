@@ -1,4 +1,5 @@
 extern crate bindgen;
+extern crate skeptic;
 use std::path::PathBuf;
 use std::process::Command;
 use std::env;
@@ -53,4 +54,9 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+
+
+
+    // generates doc tests for `README.md`.
+    skeptic::generate_doc_tests(&["README.md"]);
 }

@@ -13,3 +13,7 @@ failure_derive = "*"
 
 [build-dependencies]
 bindgen = "*"
+skeptic = "0.13"
+
+[dev-dependencies]
+skeptic = "0.13"

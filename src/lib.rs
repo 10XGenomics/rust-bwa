@@ -283,13 +283,12 @@ impl BwaAligner {
     }
 }
 
-
 #[cfg(test)]
-mod tests {
+mod tests { 
     use super::*;
 
     fn load_aligner() -> BwaAligner {
-        let aln = BwaAligner::from_path("test/test_ref.fa");
+        let aln = BwaAligner::from_path("tests/test_ref.fa");
         aln.unwrap()
     }
 
