@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 libc = "*"
-rust-htslib = { path = "../rust-htslib" }
+rust-htslib = { git = "https://github.com/10XGenomics/rust-htslib",  rev="3aaeceb347" }
 failure = "*"
 failure_derive = "*"
 
