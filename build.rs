@@ -4,19 +4,6 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::env;
 
-/*
-fn main() {
-    let root = env::var("CARGO_MANIFEST_DIR").unwrap();
-
-    Command::new("make").current_dir("bwa")
-                        .arg("CFLAGS=-g -Wall -O2 -fPIC")
-                        .arg("libbwa.a")
-                        .status().ok().expect("Failed to build bwa");
-
-    println!("cargo:rustc-flags=-L {}/bwa -l static=bwa -l z", root);
-}
-*/
-
 
 fn main() {
 
@@ -58,5 +45,5 @@ fn main() {
 
 
     // generates doc tests for `README.md`.
-    skeptic::generate_doc_tests(&["README.md"]);
+    // skeptic::generate_doc_tests(&["README.md"]);
 }
