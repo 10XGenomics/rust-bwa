@@ -7,13 +7,12 @@ build = "build.rs"
 
 [dependencies]
 libc = "*"
-rust-htslib = { git = "https://github.com/10XGenomics/rust-htslib",  rev="3aaeceb347" }
+rust-htslib = { git = "https://github.com/rust-bio/rust-htslib",  rev="1e905704de18" }
 failure = "*"
 failure_derive = "*"
 
 [build-dependencies]
 bindgen = "*"
 skeptic = "0.13"
-
 [dev-dependencies]
 skeptic = "0.13"

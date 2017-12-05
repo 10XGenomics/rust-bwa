@@ -39,7 +39,6 @@ use std::ptr;
 use rust_htslib::bam::header::{Header, HeaderRecord};
 use rust_htslib::bam::record::Record;
 use rust_htslib::bam::HeaderView;
-use rust_htslib::sam::SamReader;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
@@ -261,7 +260,6 @@ impl BwaAligner {
         // Parse the results from the SAM output & convert the htslib Records
         let sam1 = unsafe { CStr::from_ptr(reads[0].sam) };
         let sam2 = unsafe { CStr::from_ptr(reads[1].sam) };
-        println!("r1:\n{:?}\nr2:\n{:?}", sam1, sam2);
 
         let recs1 = self.parse_sam_to_records(sam1.to_bytes());
         let recs2 = self.parse_sam_to_records(sam2.to_bytes());
@@ -273,8 +271,9 @@ impl BwaAligner {
 
         for slc in sam.split(|x| *x == b'\n') {
             if slc.len() > 0 {
-                println!("slc: {:?}", String::from_utf8(slc.to_vec()));
-                let r = SamReader::parse_record(&self.header_view, CString::new(slc).unwrap().as_bytes_with_nul()).unwrap();
+                let s = String::from_utf8(Vec::from(slc)).unwrap();
+                println!("sam: {}", s);
+                let r = Record::from_sam(&self.header_view, slc).unwrap();
                 records.push(r);
             }
         }
