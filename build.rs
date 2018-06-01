@@ -23,13 +23,13 @@ fn main() {
         // The input header we would like to generate
         // bindings for.
         .header("wrapper.h")
-        .whitelisted_function("mem_align1_core")
-        .whitelisted_function("mem_sam_pe")
-        .whitelisted_function("mem_opt_init")
-        .whitelisted_function("bwa_idx_load")
-        .whitelisted_function("mem_process_seq_pe")
-        .whitelisted_function("bwa_fill_scmat")
-        .whitelisted_var("BWA_IDX_*")
+        .whitelist_function("mem_align1_core")
+        .whitelist_function("mem_sam_pe")
+        .whitelist_function("mem_opt_init")
+        .whitelist_function("bwa_idx_load")
+        .whitelist_function("mem_process_seq_pe")
+        .whitelist_function("bwa_fill_scmat")
+        .whitelist_var("BWA_IDX_*")
 
         // Finish the builder and generate the bindings.
         .generate()

@@ -14,7 +14,7 @@
 //! let r2 = b"TGCTGCGTAGCAGATCGACCCAGGCATTCCCTAGCGTGCTCATGCTCTGGCTGGTAAACGCACGGATGAGGGCAAAAAT";
 //! let q2 = b"2222222222222222222222222222222222222222222222222222222222222222222222222222222";
 //! 
-//! let (r1_alns, _r2_alns) = bwa.align_read_pair(b"read_name", r1, q1, r2, q2).unwrap();
+//! let (r1_alns, _r2_alns) = bwa.align_read_pair(b"read_name", r1, q1, r2, q2);
 //! println!("r1 mapping -- tid: {}, pos: {}", r1_alns[0].tid(), r1_alns[0].pos());
 //! ```
 
@@ -212,7 +212,7 @@ impl BwaAligner {
     }
 
     /// Align a read-pair to the reference.
-    pub fn align_read_pair(&self, name: &[u8], r1: &[u8], q1: &[u8], r2: &[u8], q2: &[u8]) -> Result<(Vec<Record>, Vec<Record>), Error> {
+    pub fn align_read_pair(&self, name: &[u8], r1: &[u8], q1: &[u8], r2: &[u8], q2: &[u8]) -> (Vec<Record>, Vec<Record>) {
 
         let name = CString::new(name).unwrap();
         let raw_name = name.into_raw();
@@ -263,7 +263,9 @@ impl BwaAligner {
 
         let recs1 = self.parse_sam_to_records(sam1.to_bytes());
         let recs2 = self.parse_sam_to_records(sam2.to_bytes());
-        Ok((recs1, recs2))
+
+        // FIXME -- free the sam fields of bseq structs.
+        (recs1, recs2)
     }
 
     fn parse_sam_to_records(&self, sam: &[u8]) -> Vec<Record> {
@@ -321,7 +323,7 @@ mod tests {
 
     fn align_read(r: [&[u8]; 5]) -> (Vec<Record>, Vec<Record>) {
         let bwa = load_aligner();
-        bwa.align_read_pair(r[0], r[1], r[2], r[3], r[4]).unwrap()
+        bwa.align_read_pair(r[0], r[1], r[2], r[3], r[4])
     }
 
     #[test]
