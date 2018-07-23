@@ -8,32 +8,31 @@
 //! use bwa::BwaAligner;
 //!
 //! let bwa = BwaAligner::from_path(&"tests/test_ref.fa").unwrap();
-//! 
+//!
 //! let r1 = b"GATGGCTGCGCAAGGGTTCTTACTGATCGCCACGTTTTTACTGGTGTTAATGGTGCTGGCGCGTCCTTTAGGCAGCGGG";
 //! let q1 = b"2222222222222222222222222222222222222222222222222222222222222222222222222222222";
 //! let r2 = b"TGCTGCGTAGCAGATCGACCCAGGCATTCCCTAGCGTGCTCATGCTCTGGCTGGTAAACGCACGGATGAGGGCAAAAAT";
 //! let q2 = b"2222222222222222222222222222222222222222222222222222222222222222222222222222222";
-//! 
+//!
 //! let (r1_alns, _r2_alns) = bwa.align_read_pair(b"read_name", r1, q1, r2, q2);
 //! println!("r1 mapping -- tid: {}, pos: {}", r1_alns[0].tid(), r1_alns[0].pos());
 //! ```
-
 
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+extern crate failure;
 extern crate libc;
 extern crate rust_htslib;
-extern crate failure;
 
-#[macro_use] 
+#[macro_use]
 extern crate failure_derive;
 
 use failure::Error;
 
-use std::path::Path;
 use std::ffi::{CStr, CString};
+use std::path::Path;
 use std::ptr;
 use std::sync::{Arc, Mutex};
 
@@ -43,14 +42,12 @@ use rust_htslib::bam::HeaderView;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-
 /// BWA settings object. Currently only default settings are enabled
-pub struct BwaSettings { 
+pub struct BwaSettings {
     bwa_settings: mem_opt_t,
 }
 
 impl BwaSettings {
-
     /// Create a `BwaSettings` object with default BWA parameters
     pub fn new() -> BwaSettings {
         let ptr = unsafe { mem_opt_init() };
@@ -60,7 +57,13 @@ impl BwaSettings {
     }
 
     /// Set alignment scores
-    pub fn set_scores(mut self, matchp: i32, mismatch: i32, gap_open: i32, gap_extend: i32) -> BwaSettings{
+    pub fn set_scores(
+        mut self,
+        matchp: i32,
+        mismatch: i32,
+        gap_open: i32,
+        gap_extend: i32,
+    ) -> BwaSettings {
         self.bwa_settings.a = matchp;
         self.bwa_settings.b = mismatch;
         self.bwa_settings.o_del = gap_open;
@@ -68,7 +71,7 @@ impl BwaSettings {
         self.bwa_settings.e_del = gap_extend;
         self.bwa_settings.e_ins = gap_extend;
 
-        unsafe { 
+        unsafe {
             bwa_fill_scmat(matchp, mismatch, self.bwa_settings.mat.as_mut_ptr());
         }
         self
@@ -89,7 +92,7 @@ impl BwaSettings {
 
     /// Mark shorter splits as secondary
     pub fn set_no_multi(mut self) -> BwaSettings {
-        self.bwa_settings.flag |= 0x10;  // MEM_F_NO_MULTI
+        self.bwa_settings.flag |= 0x10; // MEM_F_NO_MULTI
         self
     }
 }
@@ -98,33 +101,34 @@ impl BwaSettings {
 #[fail(display = "{}", _0)]
 pub struct ReferenceError(String);
 
-
 /// A BWA reference object to perform alignments to.
 /// Must be loaded from a BWA index created with `bwa index`
-pub struct BwaReference  {
-	bwt_data: *const bwaidx_t,
+pub struct BwaReference {
+    bwt_data: *const bwaidx_t,
     contig_names: Vec<String>,
     contig_lengths: Vec<usize>,
 }
 unsafe impl Sync for BwaReference {}
 
 impl BwaReference {
-    /// Load a BWA reference from disk. Pass the fasta filename of the 
+    /// Load a BWA reference from disk. Pass the fasta filename of the
     /// original reference as `path`
     pub fn open<P: AsRef<Path>>(path: P) -> Result<BwaReference, ReferenceError> {
-
         let idx_file = CString::new(path.as_ref().to_str().unwrap()).unwrap();
-        let idx = unsafe {  bwa_idx_load(idx_file.as_ptr(), 0x7 as i32) }; // FIXME -- use BWA_IDX_ALL
+        let idx = unsafe { bwa_idx_load(idx_file.as_ptr(), 0x7 as i32) }; // FIXME -- use BWA_IDX_ALL
 
         if idx.is_null() {
-            return Err(ReferenceError(format!("couldn't load reference: {:?}", path.as_ref())));
+            return Err(ReferenceError(format!(
+                "couldn't load reference: {:?}",
+                path.as_ref()
+            )));
         }
 
         let mut contig_names = Vec::new();
         let mut contig_lengths = Vec::new();
         let num_contigs = unsafe { (*(*idx).bns).n_seqs };
 
-        for i in 0 .. num_contigs as isize {
+        for i in 0..num_contigs as isize {
             unsafe {
                 let name = CStr::from_ptr((*(*(*idx).bns).anns.offset(i)).name);
                 let sz = (*(*(*idx).bns).anns.offset(i)).len;
@@ -140,6 +144,16 @@ impl BwaReference {
             contig_names,
             contig_lengths,
         })
+    }
+
+    pub fn create_bam_header(&self) -> Header {
+        let mut header = Header::new();
+
+        for (ref contig_name, &len) in self.contig_names.iter().zip(self.contig_lengths.iter()) {
+            add_ref_to_bam_header(&mut header, &contig_name, len);
+        }
+
+        header
     }
 }
 
@@ -158,22 +172,6 @@ fn add_ref_to_bam_header(header: &mut Header, seq_name: &str, seq_len: usize) {
     header.push_record(&header_rec);
 }
 
-fn create_bam_header(refe: &BwaReference) -> Header {
-    let mut header = Header::new();
-
-    // Program header (FIXME -- allow customization)
-    let mut header_rec = HeaderRecord::new(b"PG");
-    header_rec.push_tag(b"ID", &"vdj_asm asm");
-    header.push_record(&header_rec);
-
-    for (ref contig_name, len) in refe.contig_names.iter().zip(refe.contig_lengths.iter()) {
-        add_ref_to_bam_header(&mut header, &contig_name, *len);
-    }
-
-    header
-}
-
-
 /// Paired-end statistics structure used by BWA to score paired-end reads
 pub struct PairedEndStats {
     inner: [mem_pestat_t; 4],
@@ -183,11 +181,23 @@ impl PairedEndStats {
     /// Generate a 'simple' paired-end read structure that standard forward-reverse
     /// pairs as created by TruSeq, Nextera, or Chromium Genome sample preparations.
     pub fn simple(avg: f64, std: f64, low: i32, high: i32) -> PairedEndStats {
-        let pe_stat_null = || mem_pestat_t { failed: 1, low: 0, high: 0, avg: 0.0, std: 100.0 };
+        let pe_stat_null = || mem_pestat_t {
+            failed: 1,
+            low: 0,
+            high: 0,
+            avg: 0.0,
+            std: 100.0,
+        };
 
         let pes = [
             pe_stat_null(),
-            mem_pestat_t { failed: 0, low, high, avg, std },
+            mem_pestat_t {
+                failed: 0,
+                low,
+                high,
+                avg,
+                std,
+            },
             pe_stat_null(),
             pe_stat_null(),
         ];
@@ -217,12 +227,19 @@ impl BwaAligner {
     /// Load a BWA reference from the given path and use default BWA settings and paired-end structure.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<BwaAligner, Error> {
         let bwa_ref = BwaReference::open(path)?;
-        Ok(BwaAligner::new(bwa_ref, BwaSettings::new(), PairedEndStats::default()))
+        Ok(BwaAligner::new(
+            bwa_ref,
+            BwaSettings::new(),
+            PairedEndStats::default(),
+        ))
     }
 
-    pub fn new(reference: BwaReference, settings: BwaSettings, pe_stats: PairedEndStats) -> BwaAligner {
-
-        let header = create_bam_header(&reference);
+    pub fn new(
+        reference: BwaReference,
+        settings: BwaSettings,
+        pe_stats: PairedEndStats,
+    ) -> BwaAligner {
+        let header = reference.create_bam_header();
         let header_view = Arc::new(Mutex::new(HeaderView::from_header(&header)));
 
         BwaAligner {
@@ -234,8 +251,14 @@ impl BwaAligner {
     }
 
     /// Align a read-pair to the reference.
-    pub fn align_read_pair(&self, name: &[u8], r1: &[u8], q1: &[u8], r2: &[u8], q2: &[u8]) -> (Vec<Record>, Vec<Record>) {
-
+    pub fn align_read_pair(
+        &self,
+        name: &[u8],
+        r1: &[u8],
+        q1: &[u8],
+        r2: &[u8],
+        q2: &[u8],
+    ) -> (Vec<Record>, Vec<Record>) {
         let name = CString::new(name).unwrap();
         let raw_name = name.into_raw();
 
@@ -246,39 +269,43 @@ impl BwaAligner {
         let mut r2 = Vec::from(r2);
         let mut q2 = Vec::from(q2);
 
-        let read1 = 
-            bseq1_t {
-                l_seq: r1.len() as i32,
-                name: raw_name,
-                seq: r1.as_mut_ptr() as *mut i8,
-                qual: q1.as_mut_ptr() as *mut i8,
-                comment: ptr::null_mut(),
-                id: 0,
-                sam: ptr::null_mut(),
-            };
+        let read1 = bseq1_t {
+            l_seq: r1.len() as i32,
+            name: raw_name,
+            seq: r1.as_mut_ptr() as *mut i8,
+            qual: q1.as_mut_ptr() as *mut i8,
+            comment: ptr::null_mut(),
+            id: 0,
+            sam: ptr::null_mut(),
+        };
 
-        let read2 = 
-            bseq1_t {
-                l_seq: r2.len() as i32,
-                name: raw_name,
-                seq: r2.as_mut_ptr() as *mut i8,
-                qual: q2.as_mut_ptr() as *mut i8,
-                comment: ptr::null_mut(),
-                id: 0,
-                sam: ptr::null_mut(),
-            };
-        
+        let read2 = bseq1_t {
+            l_seq: r2.len() as i32,
+            name: raw_name,
+            seq: r2.as_mut_ptr() as *mut i8,
+            qual: q2.as_mut_ptr() as *mut i8,
+            comment: ptr::null_mut(),
+            id: 0,
+            sam: ptr::null_mut(),
+        };
 
         let mut reads = [read1, read2];
-    
+
         // Align the read pair. BWA will write the SAM data back to the bseq1_t.sam field
         unsafe {
             let r = *(self.reference.bwt_data);
             let settings = self.settings.bwa_settings;
-            mem_process_seq_pe(&settings, r.bwt, r.bns, r.pac, reads.as_mut_ptr(), self.pe_stats.inner.as_ptr());
+            mem_process_seq_pe(
+                &settings,
+                r.bwt,
+                r.bns,
+                r.pac,
+                reads.as_mut_ptr(),
+                self.pe_stats.inner.as_ptr(),
+            );
             let _ = CString::from_raw(raw_name);
         }
-    
+
         // Parse the results from the SAM output & convert the htslib Records
         let sam1 = unsafe { CStr::from_ptr(reads[0].sam) };
         let sam2 = unsafe { CStr::from_ptr(reads[1].sam) };
@@ -312,7 +339,7 @@ impl BwaAligner {
 }
 
 #[cfg(test)]
-mod tests { 
+mod tests {
     use super::*;
 
     fn load_aligner() -> BwaAligner {
@@ -320,14 +347,13 @@ mod tests {
         aln.unwrap()
     }
 
-
     #[test]
     fn test_load_aligner() {
         let _ = load_aligner();
     }
 
     fn read_simple() -> [&'static [u8]; 5] {
-        let name : &[u8] = b"@chr_727436_727956_3:0:0_1:0:0_0/1";
+        let name: &[u8] = b"@chr_727436_727956_3:0:0_1:0:0_0/1";
         let r1  : &[u8] = b"GATGGCTGCGCAAGGGTTCTTACTGATCGCCACGTTTTTACTGGTGTTAATGGTGCTGGCGCGTCCTTTAGGCAGCGGGCTGGCGCGGCTGATTAATGACATTCCTCTTCCCGGTACAACGGGCGTTGAGCGCGAACTTTTTCGCGCACT";
         let q1  : &[u8] = b"222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222";
 
