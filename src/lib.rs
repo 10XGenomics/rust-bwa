@@ -279,7 +279,6 @@ impl BwaAligner {
 
         for slc in sam.split(|x| *x == b'\n') {
             if slc.len() > 0 {
-                let s = String::from_utf8(Vec::from(slc)).unwrap();
                 let r = Record::from_sam(&self.header_view, slc).unwrap();
                 records.push(r);
             }
