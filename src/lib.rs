@@ -83,6 +83,12 @@ impl BwaSettings {
         self.bwa_settings.pen_unpaired = unpaired;
         self
     }
+
+    /// Mark shorter splits as secondary
+    pub fn set_no_multi(mut self) -> BwaSettings {
+        self.bwa_settings.flag |= 0x10;  // MEM_F_NO_MULTI
+        self
+    }
 }
 
 #[derive(Debug, Fail)]
@@ -274,7 +280,6 @@ impl BwaAligner {
         for slc in sam.split(|x| *x == b'\n') {
             if slc.len() > 0 {
                 let s = String::from_utf8(Vec::from(slc)).unwrap();
-                println!("sam: {}", s);
                 let r = Record::from_sam(&self.header_view, slc).unwrap();
                 records.push(r);
             }
