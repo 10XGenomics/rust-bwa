@@ -1,4 +1,4 @@
 [submodule "bwa"]
 	path = bwa
-	url = git@github.com:pmarks/bwa.git
+	url = https://github.com/pmarks/bwa.git
 	branch = Apache2
