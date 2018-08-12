@@ -52,8 +52,10 @@ impl BwaSettings {
 
     /// Create a `BwaSettings` object with default BWA parameters
     pub fn new() -> BwaSettings {
-        let s = unsafe { *mem_opt_init() };
-        BwaSettings { bwa_settings: s }
+        let ptr = unsafe { mem_opt_init() };
+        let bwa_settings = unsafe { *ptr };
+        unsafe { libc::free(ptr as *mut libc::c_void) };
+        BwaSettings { bwa_settings }
     }
 
     /// Set alignment scores
@@ -136,6 +138,14 @@ impl BwaReference {
             contig_names,
             contig_lengths,
         })
+    }
+}
+
+impl Drop for BwaReference {
+    fn drop(&mut self) {
+        unsafe {
+            bwa_idx_destroy(self.bwt_data as *mut bwaidx_t);
+        }
     }
 }
 
@@ -270,7 +280,11 @@ impl BwaAligner {
         let recs1 = self.parse_sam_to_records(sam1.to_bytes());
         let recs2 = self.parse_sam_to_records(sam2.to_bytes());
 
-        // FIXME -- free the sam fields of bseq structs.
+        unsafe {
+            libc::free(reads[0].sam as *mut libc::c_void);
+            libc::free(reads[1].sam as *mut libc::c_void);
+        }
+
         (recs1, recs2)
     }
 
