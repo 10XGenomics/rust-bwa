@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 libc = "*"
-rust-htslib = { git = "https://github.com/10XGenomics/rust-htslib.git", branch = "lh/featurize-bzip2-lzma", default-features = false, features = ["serde"] }
+rust-htslib = { version = "^0.21", default-features = false }
 failure = "*"
 failure_derive = "*"
 
