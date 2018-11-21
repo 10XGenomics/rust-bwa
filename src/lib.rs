@@ -35,6 +35,7 @@ use failure::Error;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::ptr;
+use std::sync::{Arc, Mutex};
 
 use rust_htslib::bam::header::{Header, HeaderRecord};
 use rust_htslib::bam::record::Record;
@@ -105,6 +106,7 @@ pub struct BwaReference  {
     contig_names: Vec<String>,
     contig_lengths: Vec<usize>,
 }
+unsafe impl Sync for BwaReference {}
 
 impl BwaReference {
     /// Load a BWA reference from disk. Pass the fasta filename of the 
@@ -202,10 +204,14 @@ impl PairedEndStats {
 /// reads to a reference and generate BAM records.
 pub struct BwaAligner {
     reference: BwaReference,
-    header_view: HeaderView,
+    header_view: Arc<Mutex<HeaderView>>,
     settings: BwaSettings,
     pe_stats: PairedEndStats,
 }
+// this is not automatically derived because of an interior
+//   mutable pointer inside HeaderView. It _is_ mutated
+//   by the Record::from_sam function, so guard it with a mutex
+unsafe impl Sync for BwaAligner {}
 
 impl BwaAligner {
     /// Load a BWA reference from the given path and use default BWA settings and paired-end structure.
@@ -217,7 +223,7 @@ impl BwaAligner {
     pub fn new(reference: BwaReference, settings: BwaSettings, pe_stats: PairedEndStats) -> BwaAligner {
 
         let header = create_bam_header(&reference);
-        let header_view = HeaderView::from_header(&header);
+        let header_view = Arc::new(Mutex::new(HeaderView::from_header(&header)));
 
         BwaAligner {
             reference,
@@ -293,8 +299,11 @@ impl BwaAligner {
 
         for slc in sam.split(|x| *x == b'\n') {
             if slc.len() > 0 {
-                let r = Record::from_sam(&self.header_view, slc).unwrap();
-                records.push(r);
+                let record = {
+                    let header_view = self.header_view.lock().unwrap();
+                    Record::from_sam(&header_view, slc).unwrap()
+                };
+                records.push(record);
             }
         }
 
