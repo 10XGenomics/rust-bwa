@@ -27,6 +27,7 @@ fn main() {
         .whitelist_function("mem_sam_pe")
         .whitelist_function("mem_opt_init")
         .whitelist_function("bwa_idx_load")
+        .whitelist_function("bwa_idx_destroy")
         .whitelist_function("mem_process_seq_pe")
         .whitelist_function("bwa_fill_scmat")
         .whitelist_var("BWA_IDX_*")

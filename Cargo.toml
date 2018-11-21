@@ -7,12 +7,12 @@ build = "build.rs"
 
 [dependencies]
 libc = "*"
-rust-htslib = "0.19"
+rust-htslib = { version = "^0.21", default-features = false, features = ["serde"] }
 failure = "*"
 failure_derive = "*"
 
 [build-dependencies]
-bindgen = "*"
+bindgen = "0.36"
 skeptic = "*"
 
 [dev-dependencies]

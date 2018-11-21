@@ -35,6 +35,7 @@ use failure::Error;
 use std::path::Path;
 use std::ffi::{CStr, CString};
 use std::ptr;
+use std::sync::{Arc, Mutex};
 
 use rust_htslib::bam::header::{Header, HeaderRecord};
 use rust_htslib::bam::record::Record;
@@ -52,8 +53,10 @@ impl BwaSettings {
 
     /// Create a `BwaSettings` object with default BWA parameters
     pub fn new() -> BwaSettings {
-        let s = unsafe { *mem_opt_init() };
-        BwaSettings { bwa_settings: s }
+        let ptr = unsafe { mem_opt_init() };
+        let bwa_settings = unsafe { *ptr };
+        unsafe { libc::free(ptr as *mut libc::c_void) };
+        BwaSettings { bwa_settings }
     }
 
     /// Set alignment scores
@@ -83,6 +86,12 @@ impl BwaSettings {
         self.bwa_settings.pen_unpaired = unpaired;
         self
     }
+
+    /// Mark shorter splits as secondary
+    pub fn set_no_multi(mut self) -> BwaSettings {
+        self.bwa_settings.flag |= 0x10;  // MEM_F_NO_MULTI
+        self
+    }
 }
 
 #[derive(Debug, Fail)]
@@ -97,6 +106,7 @@ pub struct BwaReference  {
     contig_names: Vec<String>,
     contig_lengths: Vec<usize>,
 }
+unsafe impl Sync for BwaReference {}
 
 impl BwaReference {
     /// Load a BWA reference from disk. Pass the fasta filename of the 
@@ -130,6 +140,14 @@ impl BwaReference {
             contig_names,
             contig_lengths,
         })
+    }
+}
+
+impl Drop for BwaReference {
+    fn drop(&mut self) {
+        unsafe {
+            bwa_idx_destroy(self.bwt_data as *mut bwaidx_t);
+        }
     }
 }
 
@@ -186,10 +204,14 @@ impl PairedEndStats {
 /// reads to a reference and generate BAM records.
 pub struct BwaAligner {
     reference: BwaReference,
-    header_view: HeaderView,
+    header_view: Arc<Mutex<HeaderView>>,
     settings: BwaSettings,
     pe_stats: PairedEndStats,
 }
+// this is not automatically derived because of an interior
+//   mutable pointer inside HeaderView. It _is_ mutated
+//   by the Record::from_sam function, so guard it with a mutex
+unsafe impl Sync for BwaAligner {}
 
 impl BwaAligner {
     /// Load a BWA reference from the given path and use default BWA settings and paired-end structure.
@@ -201,7 +223,7 @@ impl BwaAligner {
     pub fn new(reference: BwaReference, settings: BwaSettings, pe_stats: PairedEndStats) -> BwaAligner {
 
         let header = create_bam_header(&reference);
-        let header_view = HeaderView::from_header(&header);
+        let header_view = Arc::new(Mutex::new(HeaderView::from_header(&header)));
 
         BwaAligner {
             reference,
@@ -264,7 +286,11 @@ impl BwaAligner {
         let recs1 = self.parse_sam_to_records(sam1.to_bytes());
         let recs2 = self.parse_sam_to_records(sam2.to_bytes());
 
-        // FIXME -- free the sam fields of bseq structs.
+        unsafe {
+            libc::free(reads[0].sam as *mut libc::c_void);
+            libc::free(reads[1].sam as *mut libc::c_void);
+        }
+
         (recs1, recs2)
     }
 
@@ -273,10 +299,11 @@ impl BwaAligner {
 
         for slc in sam.split(|x| *x == b'\n') {
             if slc.len() > 0 {
-                let s = String::from_utf8(Vec::from(slc)).unwrap();
-                println!("sam: {}", s);
-                let r = Record::from_sam(&self.header_view, slc).unwrap();
-                records.push(r);
+                let record = {
+                    let header_view = self.header_view.lock().unwrap();
+                    Record::from_sam(&header_view, slc).unwrap()
+                };
+                records.push(record);
             }
         }
 
