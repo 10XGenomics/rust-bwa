@@ -12,7 +12,7 @@ failure = "*"
 failure_derive = "*"
 
 [build-dependencies]
-bindgen = "^0.37"
+bindgen = ">=0.47"
 skeptic = "*"
 
 [dev-dependencies]
