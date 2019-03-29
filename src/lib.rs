@@ -147,12 +147,13 @@ impl BwaReference {
     }
 
     pub fn create_bam_header(&self) -> Header {
-        let mut header = Header::new();
+        self.populate_bam_header(Header::new())
+    }
 
+    pub fn populate_bam_header(&self, mut header: Header) -> Header {
         for (ref contig_name, &len) in self.contig_names.iter().zip(self.contig_lengths.iter()) {
             add_ref_to_bam_header(&mut header, &contig_name, len);
         }
-
         header
     }
 }
