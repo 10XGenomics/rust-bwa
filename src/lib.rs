@@ -147,14 +147,15 @@ impl BwaReference {
     }
 
     pub fn create_bam_header(&self) -> Header {
-        self.populate_bam_header(Header::new())
+        let mut header = Header::new();
+        self.populate_bam_header(&mut header);
+        header
     }
 
-    pub fn populate_bam_header(&self, mut header: Header) -> Header {
+    pub fn populate_bam_header(&self, header: &mut Header) {
         for (ref contig_name, &len) in self.contig_names.iter().zip(self.contig_lengths.iter()) {
-            add_ref_to_bam_header(&mut header, &contig_name, len);
+            add_ref_to_bam_header(header, &contig_name, len);
         }
-        header
     }
 }
 
@@ -394,5 +395,12 @@ mod tests {
         assert_eq!(r1[0].pos(), 931375);
         assert_eq!(r1[1].pos(), 932605);
         assert_eq!(r2[0].pos(), 932937);
+    }
+
+    #[test]
+    fn header() {
+        let reference = BwaReference::open("tests/test_ref.fa").unwrap();
+        let hdr = b"@SQ\tSN:PhiX\tLN:5386\n@SQ\tSN:chr\tLN:4639675";
+        assert_eq!(reference.create_bam_header().to_bytes().as_slice(), &hdr[..]);
     }
 }
