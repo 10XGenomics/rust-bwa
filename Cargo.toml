@@ -9,11 +9,4 @@ build = "build.rs"
 libc = "*"
 failure = "*"
 failure_derive = "*"
-rust-htslib = { git = "https://github.com/rust-bio/rust-htslib.git", rev = "f149f9f6172d26b5921693e84f4334d7108f1814", default-features = false, features = ["serde_feature"] }
-
-[build-dependencies]
-bindgen = ">=0.47"
-skeptic = "*"
-
-[dev-dependencies]
-skeptic = "*"
+rust-htslib = { version = "0.34.0", default-features = false, features = ["serde_feature"] }
