@@ -1,0 +1,15 @@
+[package]
+name = "bwa-sys"
+version = "0.1.0"
+authors = ["Patrick Marks <patrick@10xgenomics.com>"]
+build = "build.rs"
+links = "bwa"
+
+[dependencies]
+libc = "*"
+
+[lib]
+name = "bwa_sys"
+
+[build-dependencies]
+cc = { version = "*", features = ["parallel"] }

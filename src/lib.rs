@@ -40,17 +40,17 @@ use rust_htslib::bam::header::{Header, HeaderRecord};
 use rust_htslib::bam::record::Record;
 use rust_htslib::bam::HeaderView;
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+// include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 /// BWA settings object. Currently only default settings are enabled
 pub struct BwaSettings {
-    bwa_settings: mem_opt_t,
+    bwa_settings: bwa_sys::mem_opt_t,
 }
 
 impl BwaSettings {
     /// Create a `BwaSettings` object with default BWA parameters
     pub fn new() -> BwaSettings {
-        let ptr = unsafe { mem_opt_init() };
+        let ptr = unsafe { bwa_sys::mem_opt_init() };
         let bwa_settings = unsafe { *ptr };
         unsafe { libc::free(ptr as *mut libc::c_void) };
         BwaSettings { bwa_settings }
@@ -72,7 +72,7 @@ impl BwaSettings {
         self.bwa_settings.e_ins = gap_extend;
 
         unsafe {
-            bwa_fill_scmat(matchp, mismatch, self.bwa_settings.mat.as_mut_ptr());
+            bwa_sys::bwa_fill_scmat(matchp, mismatch, self.bwa_settings.mat.as_mut_ptr());
         }
         self
     }
@@ -104,7 +104,7 @@ pub struct ReferenceError(String);
 /// A BWA reference object to perform alignments to.
 /// Must be loaded from a BWA index created with `bwa index`
 pub struct BwaReference {
-    bwt_data: *const bwaidx_t,
+    bwt_data: *const bwa_sys::bwaidx_t,
     contig_names: Vec<String>,
     contig_lengths: Vec<usize>,
 }
@@ -115,7 +115,7 @@ impl BwaReference {
     /// original reference as `path`
     pub fn open<P: AsRef<Path>>(path: P) -> Result<BwaReference, ReferenceError> {
         let idx_file = CString::new(path.as_ref().to_str().unwrap()).unwrap();
-        let idx = unsafe { bwa_idx_load(idx_file.as_ptr(), 0x7 as i32) }; // FIXME -- use BWA_IDX_ALL
+        let idx = unsafe { bwa_sys::bwa_idx_load(idx_file.as_ptr(), 0x7 as i32) }; // FIXME -- use BWA_IDX_ALL
 
         if idx.is_null() {
             return Err(ReferenceError(format!(
@@ -162,7 +162,7 @@ impl BwaReference {
 impl Drop for BwaReference {
     fn drop(&mut self) {
         unsafe {
-            bwa_idx_destroy(self.bwt_data as *mut bwaidx_t);
+            bwa_sys::bwa_idx_destroy(self.bwt_data as *mut bwa_sys::bwaidx_t);
         }
     }
 }
@@ -176,14 +176,14 @@ fn add_ref_to_bam_header(header: &mut Header, seq_name: &str, seq_len: usize) {
 
 /// Paired-end statistics structure used by BWA to score paired-end reads
 pub struct PairedEndStats {
-    inner: [mem_pestat_t; 4],
+    inner: [bwa_sys::mem_pestat_t; 4],
 }
 
 impl PairedEndStats {
     /// Generate a 'simple' paired-end read structure that standard forward-reverse
     /// pairs as created by TruSeq, Nextera, or Chromium Genome sample preparations.
     pub fn simple(avg: f64, std: f64, low: i32, high: i32) -> PairedEndStats {
-        let pe_stat_null = || mem_pestat_t {
+        let pe_stat_null = || bwa_sys::mem_pestat_t {
             failed: 1,
             low: 0,
             high: 0,
@@ -193,7 +193,7 @@ impl PairedEndStats {
 
         let pes = [
             pe_stat_null(),
-            mem_pestat_t {
+            bwa_sys::mem_pestat_t {
                 failed: 0,
                 low,
                 high,
@@ -271,7 +271,7 @@ impl BwaAligner {
         let mut r2 = Vec::from(r2);
         let mut q2 = Vec::from(q2);
 
-        let read1 = bseq1_t {
+        let read1 = bwa_sys::bseq1_t {
             l_seq: r1.len() as i32,
             name: raw_name,
             seq: r1.as_mut_ptr() as *mut i8,
@@ -281,7 +281,7 @@ impl BwaAligner {
             sam: ptr::null_mut(),
         };
 
-        let read2 = bseq1_t {
+        let read2 = bwa_sys::bseq1_t {
             l_seq: r2.len() as i32,
             name: raw_name,
             seq: r2.as_mut_ptr() as *mut i8,
@@ -293,11 +293,11 @@ impl BwaAligner {
 
         let mut reads = [read1, read2];
 
-        // Align the read pair. BWA will write the SAM data back to the bseq1_t.sam field
+        // Align the read pair. BWA will write the SAM data back to the bwa_sys::bseq1_t.sam field
         unsafe {
             let r = *(self.reference.bwt_data);
             let settings = self.settings.bwa_settings;
-            mem_process_seq_pe(
+            bwa_sys::mem_process_seq_pe(
                 &settings,
                 r.bwt,
                 r.bns,
@@ -401,6 +401,9 @@ mod tests {
     fn header() {
         let reference = BwaReference::open("tests/test_ref.fa").unwrap();
         let hdr = b"@SQ\tSN:PhiX\tLN:5386\n@SQ\tSN:chr\tLN:4639675";
-        assert_eq!(reference.create_bam_header().to_bytes().as_slice(), &hdr[..]);
+        assert_eq!(
+            reference.create_bam_header().to_bytes().as_slice(),
+            &hdr[..]
+        );
     }
 }

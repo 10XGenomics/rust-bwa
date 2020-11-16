@@ -1,25 +1,48 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+// make -C bwa-sys/bwa/ -n libbwa.a | grep -o -E "[A-Za-z0-9_]+\.c"
+const FILES: &[&str] = &[
+    "bwa/utils.c",
+    "bwa/kthread.c",
+    "bwa/ksw.c",
+    "bwa/bwt.c",
+    "bwa/bntseq.c",
+    "bwa/bwa.c",
+    "bwa/bwamem.c",
+    "bwa/bwamem_pair.c",
+    "bwa/bwamem_extra.c",
+    "bwa/malloc_wrap.c",
+];
+
+// make -C bwa-sys/bwa/ -nd libbwa.a | grep -o -E "[A-Za-z0-9_]+\.h" | sort | uniq
+const HEADERS: &[&str] = &[
+    "bwa/bntseq.h",
+    "bwa/bwa.h",
+    "bwa/bwamem.h",
+    "bwa/bwt.h",
+    "bwa/gpl.h",
+    "bwa/kbtree.h",
+    "bwa/khash.h",
+    "bwa/kseq.h",
+    "bwa/ksort.h",
+    "bwa/kstring.h",
+    "bwa/ksw.h",
+    "bwa/kvec.h",
+    "bwa/malloc_wrap.h",
+    "bwa/utils.h",
+];
 
 fn main() {
-    Command::new("make")
-        .current_dir("bwa")
-        .arg("CFLAGS=-g -Wall -O2 -fPIC")
-        .arg("libbwa.a")
-        .status()
-        .ok()
-        .expect("Failed to build bwa");
-
-    println!("cargo:rustc-link-search=bwa");
-    println!("cargo:rustc-link-lib=static=bwa");
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-
-    #[cfg(target_os = "linux")]
-    {
-        fs::copy("linux_prebuilt_bindings.rs", out_path.join("bindings.rs"))
-            .expect("couldn't copy prebuilt bindings");
-        println!("cargo:rerun-if-changed=linux_prebuilt_bindings.rs");
+    for file in FILES {
+        println!("cargo:rerun-if-changed={}", file);
     }
+    for file in HEADERS {
+        println!("cargo:rerun-if-changed={}", file);
+    }
+    cc::Build::new()
+        .define("COMPILATION_TIME_PLACE", "\"build.rs\"")
+        .files(FILES)
+        .flag("-g")
+        .flag("-Wall")
+        .flag("-O2")
+        .flag("-fPIC")
+        .compile("bwa");
 }
