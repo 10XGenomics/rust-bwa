@@ -2,11 +2,15 @@
 name = "bwa"
 version = "0.1.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
-build = "build.rs"
 
+[workspace]
 
 [dependencies]
 libc = "*"
 failure = "*"
 failure_derive = "*"
 rust-htslib = { version = "0.34.0", default-features = false, features = ["serde_feature"] }
+bwa-sys = { path = "bwa-sys" }
+
+[profile.release]
+debug = 1
