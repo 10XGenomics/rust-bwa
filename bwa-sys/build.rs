@@ -41,8 +41,6 @@ fn main() {
         .warnings(false)
         .extra_warnings(false)
         .files(FILES)
-        .flag("-g")
-        .flag("-O2")
         .flag("-fPIC")
         .compile("bwa");
 }
