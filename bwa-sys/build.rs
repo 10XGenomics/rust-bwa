@@ -18,7 +18,6 @@ const HEADERS: &[&str] = &[
     "bwa/bwa.h",
     "bwa/bwamem.h",
     "bwa/bwt.h",
-    "bwa/gpl.h",
     "bwa/kbtree.h",
     "bwa/khash.h",
     "bwa/kseq.h",
@@ -39,10 +38,9 @@ fn main() {
     }
     cc::Build::new()
         .define("COMPILATION_TIME_PLACE", "\"build.rs\"")
+        .warnings(false)
+        .extra_warnings(false)
         .files(FILES)
-        .flag("-g")
-        .flag("-Wall")
-        .flag("-O2")
         .flag("-fPIC")
         .compile("bwa");
 }
