@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 build = "build.rs"
 links = "bwa"
+license = "Apache-2.0"
 
 [dependencies]
 libc = "*"
