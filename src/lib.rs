@@ -22,14 +22,10 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-extern crate failure;
 extern crate libc;
 extern crate rust_htslib;
 
-#[macro_use]
-extern crate failure_derive;
-
-use failure::Error;
+extern crate thiserror;
 
 use std::ffi::{CStr, CString};
 use std::path::Path;
@@ -97,8 +93,8 @@ impl BwaSettings {
     }
 }
 
-#[derive(Debug, Fail)]
-#[fail(display = "{}", _0)]
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
 pub struct ReferenceError(String);
 
 /// A BWA reference object to perform alignments to.
@@ -227,7 +223,7 @@ unsafe impl Sync for BwaAligner {}
 
 impl BwaAligner {
     /// Load a BWA reference from the given path and use default BWA settings and paired-end structure.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<BwaAligner, Error> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<BwaAligner, ReferenceError> {
         let bwa_ref = BwaReference::open(path)?;
         Ok(BwaAligner::new(
             bwa_ref,
