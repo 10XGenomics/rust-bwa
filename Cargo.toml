@@ -1,6 +1,6 @@
 [package]
 name = "bwa"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Patrick Marks <patrick@10xgenomics.com>"]
 license = "MIT"
 
@@ -8,10 +8,9 @@ license = "MIT"
 
 [dependencies]
 libc = "*"
-failure = "*"
-failure_derive = "*"
 rust-htslib = { version = ">=0.35.2", default-features = false, features = ["serde_feature"] }
 bwa-sys = { path = "bwa-sys" }
+thiserror = "1"
 
 [profile.release]
 debug = 1
